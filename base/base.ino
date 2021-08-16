@@ -8,6 +8,8 @@ using namespace std;
 #include <BLEServer.h>
 #include <Adafruit_NeoPixel.h>
 
+#include <PubSubClient.h>
+
 #include "ota.h"
 #include "ble_callbacks.h"
 #include "led.h"
@@ -23,6 +25,8 @@ using namespace std;
 configuration_struct configuration;
 Adafruit_NeoPixel pixels(NUMBER_PIXELS, LED_PIN, NEO_GRB + NEO_KHZ800);
 Led led(&pixels);
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 string real_time_color = "#0000ff";
 int number = 0;
@@ -156,8 +160,32 @@ void setup() {
   ble_exec_service->start();    
   BLEAdvertising *ble_advertising = ble_server->getAdvertising();
   ble_advertising->start();
+  // Set MQTT broker
+  client.setServer(configuration.broker_server, 1883);
+  while (!client.connected()) {
+    led.blink(1,500,500,255,0,255);
+    Serial.println("Connecting to MQTT...");
+    if (client.connect(configuration.ble_name, "public","public")) {
+      Serial.println("connected");  
+      led.blink(1,200,200,255,0,255);
+      led.blink(1,200,200,0,255,0);
+      led.blink(1,200,200,255,0,255);
+      led.blink(1,200,200,0,255,0);
+      char hello_topic[150] = "";
+      strcat(hello_topic,configuration.topic);
+      strcat(hello_topic,"/hello"); 
+      client.publish(hello_topic, configuration.ble_name);
+    } else {
+      Serial.print("failed with state ");
+      Serial.print(client.state());
+      led.blink(1,200,200,255,0,255);
+      led.blink(1,200,200,255,0,0);
+      led.blink(1,200,200,255,0,255);
+      led.blink(1,200,200,255,0,0);
+      delay(2000);
+    }
+  }
   led.blink(2,1000,100,0,255,0);
-  delay(1000);
 }
 
 void loop() {
