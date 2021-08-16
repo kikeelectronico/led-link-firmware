@@ -1,3 +1,6 @@
+# Set_EEPROM is EEPROM.ino filled with my data
+set_EEPROM/
+
 # Prerequisites
 *.d
 
