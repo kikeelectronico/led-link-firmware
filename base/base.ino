@@ -30,6 +30,16 @@ PubSubClient client(espClient);
 
 string real_time_color = "#0000ff";
 int number = 0;
+long int last_alive = 0;
+
+char alive_topic[50];
+char color_topic[50];
+
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  for (int i=0;i<length;i++) {
+    real_time_color[i] == (char)payload[i];
+  }
+}
 
 void setup() {
   Serial.begin(baudrate);
@@ -178,6 +188,7 @@ void setup() {
   ble_advertising->start();
   // Set MQTT broker
   client.setServer(configuration.broker_server, 1883);
+  client.setCallback(mqttCallback);
   while (!client.connected()) {
     led.blink(1,500,500,255,0,255);
     Serial.println("Connecting to MQTT...");
@@ -187,10 +198,17 @@ void setup() {
       led.blink(1,200,200,0,255,0);
       led.blink(1,200,200,255,0,255);
       led.blink(1,200,200,0,255,0);
-      char hello_topic[150] = "";
+      char hello_topic[50] = "";
       strcat(hello_topic,configuration.broker_topic);
       strcat(hello_topic,"/hello"); 
       client.publish(hello_topic, configuration.ble_name);
+      // Setup strings
+      strcat(alive_topic,configuration.broker_topic);
+      strcat(alive_topic,"/alive");
+      strcat(color_topic,configuration.broker_topic);
+      strcat(color_topic,"/color");
+      // Subscribe
+      client.subscribe(color_topic);
     } else {
       Serial.print("failed with state ");
       Serial.print(client.state());
@@ -205,6 +223,13 @@ void setup() {
 }
 
 void loop() {
+
+  // Send hertbeat
+  if (millis() - last_alive > 5000) {
+    client.publish(alive_topic, configuration.color);
+    last_alive = millis();
+  }
+  client.loop();
   number = (int) strtol( &real_time_color[1], NULL, 16);
   led.on(number >> 16, number >> 8 & 0xFF, number & 0xFF);
   delay(100);
