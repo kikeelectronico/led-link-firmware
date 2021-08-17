@@ -6,7 +6,9 @@ struct configuration {
   char ota_server[100];
   bool updated;
   char broker_server[100];
-  char topic[50];
+  char broker_topic[50];
+  char broker_user[25];
+  char broker_pass[25];
   char ble_name[50];
   char color[8];
 };
@@ -16,6 +18,8 @@ configuration my_configuration = {
   "",
   "",
   true,
+  "",
+  "",
   "",
   "",
   "",

@@ -29,9 +29,17 @@ class MyCallbacks: public BLECharacteristicCallbacks {
           Serial.print("BROKER ");
           Serial.println(configuration.broker_server);
         } else if (pCharacteristic->getUUID().equals(BLEUUID(TOPIC_UUID))) {
-          strcpy(configuration.topic, value.c_str());
+          strcpy(configuration.broker_topic, value.c_str());
           Serial.print("TOPIC ");
-          Serial.println(configuration.topic);
+          Serial.println(configuration.broker_topic);
+        } else if (pCharacteristic->getUUID().equals(BLEUUID(BROKER_USER_UUID))) {
+          strcpy(configuration.broker_user, value.c_str());
+          Serial.print("USER ");
+          Serial.println(configuration.broker_user);
+        } else if (pCharacteristic->getUUID().equals(BLEUUID(BROKER_PASS_UUID))) {
+          strcpy(configuration.broker_pass, value.c_str());
+          Serial.print("PASS ");
+          Serial.println(configuration.broker_pass);
         } else if (pCharacteristic->getUUID().equals(BLEUUID(COLOR_UUID))) {
           strcpy(configuration.color, value.c_str());
           Serial.print("COLOR ");
