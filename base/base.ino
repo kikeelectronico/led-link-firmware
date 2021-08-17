@@ -45,33 +45,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
 void setup() {
   Serial.begin(baudrate);
+
   // Read the eeprom
   Serial.println("\r\n\r\nWELCOME 2 LED LINK");
   Serial.println("\r\n");
   led.blink(1,1000,1000,0,255,0);
   EEPROM.begin(eeprom_size);  
   EEPROM.get(0, configuration);
-  // Connect to WiFi
-  Serial.print("Connecting to ");
-  Serial.println(configuration.ssid);
-  WiFi.begin(configuration.ssid, configuration.password);
-  int start_ts = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start_ts < 5000){
-    led.blink(1,500,500,0,0,255);
-  }
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\r\nConnected");
-  } else {
-    Serial.println("\r\nFail");
-  }
-
-  if (!configuration.updated) {
-    Serial.print("Updating firmware");    
-    configuration.updated = true;
-    EEPROM.put(0,configuration);
-    EEPROM.commit();
-    updateFirmware(&configuration.ota_server[0]);
-  }
   
   // Set up BLE
   char ble_name[150] = "";
@@ -191,11 +171,34 @@ void setup() {
   BLEAdvertising *ble_advertising = ble_server->getAdvertising();
   ble_advertising->start();
 
+  // Connect to WiFi
+  Serial.print("Connecting to ");
+  Serial.println(configuration.ssid);
+  WiFi.begin(configuration.ssid, configuration.password);
+  int start_ts = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start_ts < 5000){
+    led.blink(1,500,500,0,0,255);
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\r\nConnected");
+  } else {
+    Serial.println("\r\nFail");
+  }
+
+  if (!configuration.updated) {
+    Serial.print("Updating firmware");    
+    configuration.updated = true;
+    EEPROM.put(0,configuration);
+    EEPROM.commit();
+    updateFirmware(&configuration.ota_server[0]);
+  }
+
   // Set MQTT broker
   Serial.println("Connecting to MQTT");
   client.setServer(configuration.broker_server, 1883);
   client.setCallback(mqttCallback);
-  while (!client.connect(configuration.ble_name, configuration.broker_user, configuration.broker_pass)) {
+  start_ts = millis();
+  while (!client.connect(configuration.ble_name, configuration.broker_user, configuration.broker_pass) && millis() - start_ts < 5000) {
     led.blink(1,500,500,255,0,255);
   }  
   if (client.connected()) {
