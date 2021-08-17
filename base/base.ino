@@ -57,9 +57,7 @@ void setup() {
   WiFi.begin(configuration.ssid, configuration.password);
   int start_ts = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start_ts < 5000){
-    Serial.print(".");
     led.blink(1,500,500,0,0,255);
-    //delay(1000);
   }
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\r\nConnected");
@@ -68,12 +66,11 @@ void setup() {
   }
 
   if (!configuration.updated) {
-    Serial.print("updating");    
+    Serial.print("Updating firmware");    
     configuration.updated = true;
     EEPROM.put(0,configuration);
     EEPROM.commit();
     updateFirmware(&configuration.ota_server[0]);
-    Serial.print("updated");
   }
   
   // Set up BLE
@@ -92,6 +89,7 @@ void setup() {
                                                                    BLECharacteristic::PROPERTY_READ
                                                                  );
   name_characteristic->setValue(configuration.ble_name);
+  
   // Device info service
   BLEService *ble_device_info_service = ble_server->createService("180A");
   // Firmware version characteristic
@@ -100,8 +98,10 @@ void setup() {
                                                                    BLECharacteristic::PROPERTY_READ
                                                                  );
   firmware_version_characteristic->setValue(version_code);
+
   // Color characteristic service
   BLEService *ble_color_service = ble_server->createService(COLOR_SERVICE_UUID);
+  // Real time color characteristic
   BLECharacteristic *color_characteristic = ble_color_service->createCharacteristic(
                                                                    REAL_TIME_COLOR_UUID,
                                                                    BLECharacteristic::PROPERTY_READ |
@@ -116,6 +116,7 @@ void setup() {
                                                                  );
   color_server_characteristic->setCallbacks(new MyCallbacks());
   color_server_characteristic->setValue(configuration.color);
+
   // Config service
   BLEService *ble_config_service = ble_server->createService(CONFIGURATION_UUID);
   // SSID characteristic
@@ -180,6 +181,7 @@ void setup() {
                                                                    BLECharacteristic::PROPERTY_WRITE
                                                                  );
   command_characteristic->setCallbacks(new MyCallbacks());
+
   // Start services and advertising
   ble_access_service->start();
   ble_color_service->start();  
@@ -188,38 +190,29 @@ void setup() {
   ble_exec_service->start();    
   BLEAdvertising *ble_advertising = ble_server->getAdvertising();
   ble_advertising->start();
+
   // Set MQTT broker
+  Serial.println("Connecting to MQTT");
   client.setServer(configuration.broker_server, 1883);
   client.setCallback(mqttCallback);
-  while (!client.connected()) {
+  while (!client.connect(configuration.ble_name, configuration.broker_user, configuration.broker_pass)) {
     led.blink(1,500,500,255,0,255);
-    Serial.println("Connecting to MQTT...");
-    if (client.connect(configuration.ble_name, configuration.broker_user, configuration.broker_pass)) {
-      Serial.println("connected");  
-      led.blink(1,200,200,255,0,255);
-      led.blink(1,200,200,0,255,0);
-      led.blink(1,200,200,255,0,255);
-      led.blink(1,200,200,0,255,0);
-      char hello_topic[50] = "";
-      strcat(hello_topic,configuration.broker_topic);
-      strcat(hello_topic,"/hello"); 
-      client.publish(hello_topic, configuration.ble_name);
-      // Setup strings
-      strcat(alive_topic,configuration.broker_topic);
-      strcat(alive_topic,"/alive");
-      strcat(color_topic,configuration.broker_topic);
-      strcat(color_topic,"/color");
-      // Subscribe
-      client.subscribe(color_topic);
-    } else {
-      Serial.print("failed with state ");
-      Serial.print(client.state());
-      led.blink(1,200,200,255,0,255);
-      led.blink(1,200,200,255,0,0);
-      led.blink(1,200,200,255,0,255);
-      led.blink(1,200,200,255,0,0);
-      delay(2000);
-    }
+  }  
+  if (client.connected()) {
+    Serial.println("\r\nConnected");
+    char hello_topic[50] = "";
+    strcat(hello_topic,configuration.broker_topic);
+    strcat(hello_topic,"/hello"); 
+    client.publish(hello_topic, configuration.ble_name);
+    // Setup strings
+    strcat(alive_topic,configuration.broker_topic);
+    strcat(alive_topic,"/alive");
+    strcat(color_topic,configuration.broker_topic);
+    strcat(color_topic,"/color");
+    // Subscribe
+    client.subscribe(color_topic);
+  } else {
+    Serial.print("\r\nFail");
   }
   led.blink(2,1000,100,0,255,0);
 }
