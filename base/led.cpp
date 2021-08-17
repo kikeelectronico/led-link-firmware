@@ -1,3 +1,4 @@
+#include <Adafruit_NeoPixel.h>
 #include "led.h"
 
 Led::Led(Adafruit_NeoPixel* pixels) {
