@@ -36,9 +36,11 @@ char alive_topic[50];
 char color_topic[50];
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  for (int i=0;i<length;i++) {
-    real_time_color[i] == (char)payload[i];
-  }
+  if (strcmp(topic, color_topic)) {
+    for (int i=0;i<length;i++) {
+      real_time_color[i] == (char)payload[i];
+    }
+  }  
 }
 
 void setup() {
