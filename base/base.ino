@@ -7,20 +7,10 @@ using namespace std;
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <Adafruit_NeoPixel.h>
-
 #include <PubSubClient.h>
-
 #include "ota.h"
 #include "ble_callbacks.h"
 #include "led.h"
-
-#ifndef DEFINITIONS
-#include "definitions.h"
-#endif
-
-#ifndef PIXEL
-#include <Adafruit_NeoPixel.h>
-#endif
 
 configuration_struct configuration;
 Adafruit_NeoPixel pixels(NUMBER_PIXELS, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -31,7 +21,6 @@ PubSubClient client(espClient);
 string real_time_color = "#0000ff";
 int number = 0;
 long int last_alive = 0;
-
 char alive_topic[50];
 char color_topic[50];
 
@@ -43,17 +32,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }  
 }
 
-void setup() {
-  Serial.begin(baudrate);
-
-  // Read the eeprom
-  Serial.println("\r\n\r\nWELCOME 2 LED LINK");
-  Serial.println("\r\n");
-  led.blink(1,1000,1000,0,255,0);
-  EEPROM.begin(eeprom_size);  
-  EEPROM.get(0, configuration);
-  
-  // Set up BLE
+void bleSetup(){
   char ble_name[150] = "";
   strcat(ble_name,configuration.ble_name);
   strcat(ble_name," ");
@@ -170,6 +149,20 @@ void setup() {
   ble_exec_service->start();    
   BLEAdvertising *ble_advertising = ble_server->getAdvertising();
   ble_advertising->start();
+}
+
+void setup() {
+  Serial.begin(baudrate);
+
+  // Read the eeprom
+  Serial.println("\r\n\r\nWELCOME 2 LED LINK");
+  Serial.println("\r\n");
+  led.blink(1,1000,1000,0,255,0);
+  EEPROM.begin(eeprom_size);  
+  EEPROM.get(0, configuration);
+  
+  // Set up BLE
+  bleSetup();
 
   // Connect to WiFi
   Serial.print("Connecting to ");
