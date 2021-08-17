@@ -174,54 +174,60 @@ void setup() {
   }
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\r\nConnected");
+
+    // Download and update firmware
+    if (!configuration.updated) {
+      Serial.print("Updating firmware");    
+      configuration.updated = true;
+      EEPROM.put(0,configuration);
+      EEPROM.commit();
+      updateFirmware(&configuration.ota_server[0]);
+    }
+
+    // Set MQTT broker
+    Serial.println("Connecting to MQTT");
+    client.setServer(configuration.broker_server, 1883);
+    client.setCallback(mqttCallback);
+    start_ts = millis();
+    while (!client.connect(configuration.ble_name, configuration.broker_user, configuration.broker_pass) && millis() - start_ts < 5000) {
+      led.blink(1,500,500,255,0,255);
+    }  
+    if (client.connected()) {
+      Serial.println("\r\nConnected");
+      char hello_topic[50] = "";
+      strcat(hello_topic,configuration.broker_topic);
+      strcat(hello_topic,"/hello"); 
+      client.publish(hello_topic, configuration.ble_name);
+      // Setup strings
+      strcat(alive_topic,configuration.broker_topic);
+      strcat(alive_topic,"/alive");
+      strcat(color_topic,configuration.broker_topic);
+      strcat(color_topic,"/color");
+      // Subscribe
+      client.subscribe(color_topic);
+    } else {
+      Serial.print("\r\nFail");
+    }
+    led.blink(2,1000,100,0,255,0);
   } else {
     Serial.println("\r\nFail");
   }
 
-  if (!configuration.updated) {
-    Serial.print("Updating firmware");    
-    configuration.updated = true;
-    EEPROM.put(0,configuration);
-    EEPROM.commit();
-    updateFirmware(&configuration.ota_server[0]);
-  }
-
-  // Set MQTT broker
-  Serial.println("Connecting to MQTT");
-  client.setServer(configuration.broker_server, 1883);
-  client.setCallback(mqttCallback);
-  start_ts = millis();
-  while (!client.connect(configuration.ble_name, configuration.broker_user, configuration.broker_pass) && millis() - start_ts < 5000) {
-    led.blink(1,500,500,255,0,255);
-  }  
-  if (client.connected()) {
-    Serial.println("\r\nConnected");
-    char hello_topic[50] = "";
-    strcat(hello_topic,configuration.broker_topic);
-    strcat(hello_topic,"/hello"); 
-    client.publish(hello_topic, configuration.ble_name);
-    // Setup strings
-    strcat(alive_topic,configuration.broker_topic);
-    strcat(alive_topic,"/alive");
-    strcat(color_topic,configuration.broker_topic);
-    strcat(color_topic,"/color");
-    // Subscribe
-    client.subscribe(color_topic);
-  } else {
-    Serial.print("\r\nFail");
-  }
-  led.blink(2,1000,100,0,255,0);
+  
+  
 }
 
 void loop() {
 
-  // Send hertbeat
-  if (millis() - last_alive > 5000) {
-    client.publish(alive_topic, configuration.color);
-    last_alive = millis();
+  if (WiFi.status() == WL_CONNECTED) {
+    // Send hertbeat
+    if (millis() - last_alive > 5000) {
+      client.publish(alive_topic, configuration.color);
+      last_alive = millis();
+    }
+    client.loop();
+    number = (int) strtol( &real_time_color[1], NULL, 16);
+    led.on(number >> 16, number >> 8 & 0xFF, number & 0xFF);
+    delay(100);
   }
-  client.loop();
-  number = (int) strtol( &real_time_color[1], NULL, 16);
-  led.on(number >> 16, number >> 8 & 0xFF, number & 0xFF);
-  delay(100);
 }
