@@ -18,18 +18,23 @@ Led led(&pixels);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-string real_time_color = "#0000ff";
+char real_time_color[8] = "#0000ff";
 int number = 0;
-long int last_alive = 0;
+long int last_alive_ts = 0;
+long int last_color_ts = 0;
+long int last_master_ts = 0;
 char alive_topic[50];
 char color_topic[50];
+bool master = false;
+bool slave = false;
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  if (strcmp(topic, color_topic)) {
+  if (strcmp(topic, color_topic) == 0) {
+    slave = true;
     for (int i=0;i<length;i++) {
       real_time_color[i] == (char)payload[i];
     }
-  }  
+  } 
 }
 
 void bleSetup(){
@@ -194,10 +199,6 @@ void setup() {
     }  
     if (client.connected()) {
       Serial.println("\r\nConnected");
-      char hello_topic[50] = "";
-      strcat(hello_topic,configuration.broker_topic);
-      strcat(hello_topic,"/hello"); 
-      client.publish(hello_topic, configuration.ble_name);
       // Setup strings
       strcat(alive_topic,configuration.broker_topic);
       strcat(alive_topic,"/alive");
@@ -213,17 +214,34 @@ void setup() {
     Serial.println("\r\nFail");
   }
 
-  
-  
+  // Initialize the time stamps variables
+  last_color_ts = millis();
+  last_alive_ts = millis();
+  last_master_ts = millis();  
+  client.publish(alive_topic, "configuration.color");
 }
 
 void loop() {
 
   if (WiFi.status() == WL_CONNECTED) {
+
+    // Become a master
+    if (!slave && !master && millis() - last_color_ts > 2000) {
+      master = true;
+      client.publish(color_topic, real_time_color);
+      last_color_ts = millis();
+    }
+
+    // Send color as master
+     if (master && millis() - last_master_ts > 5000) {
+      client.publish(color_topic, real_time_color);
+      last_master_ts = millis();
+    }
+
     // Send hertbeat
-    if (millis() - last_alive > 5000) {
+    if (millis() - last_alive_ts > 5000) {
       client.publish(alive_topic, configuration.color);
-      last_alive = millis();
+      last_alive_ts = millis();
     }
     client.loop();
     number = (int) strtol( &real_time_color[1], NULL, 16);
