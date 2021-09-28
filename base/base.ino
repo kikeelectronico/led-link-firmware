@@ -8,8 +8,8 @@ using namespace std;
 #include <BLEServer.h>
 #include <Adafruit_NeoPixel.h>
 #include <PubSubClient.h>
-#include "ota.h"
-#include "ble_callbacks.h"
+#include <ESP32httpUpdate.h>
+#include "definitions.h"
 #include "led.h"
 
 configuration_struct configuration;
@@ -28,6 +28,53 @@ char color_topic[50];
 bool master = false;
 bool slave = false;
 
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      std::string value = pCharacteristic->getValue();     
+
+      if (value.length() > 0) {
+
+        configuration_struct configuration;
+        
+        EEPROM.begin(eeprom_size);  
+        EEPROM.get(0, configuration);
+        if (pCharacteristic->getUUID().equals(BLEUUID(SSID_UUID))) {
+          strcpy(configuration.ssid, value.c_str());
+        } else if (pCharacteristic->getUUID().equals(BLEUUID(PASSWORD_UUID))) {
+          strcpy(configuration.password, value.c_str());
+        } else if (pCharacteristic->getUUID().equals(BLEUUID(OTA_SERVER_UUID))) {
+          strcpy(configuration.ota_server, value.c_str());
+        } else if (pCharacteristic->getUUID().equals(BLEUUID(BROKER_SERVER_UUID))) {
+          strcpy(configuration.broker_server, value.c_str());
+        } else if (pCharacteristic->getUUID().equals(BLEUUID(TOPIC_UUID))) {
+          strcpy(configuration.broker_topic, value.c_str());
+        } else if (pCharacteristic->getUUID().equals(BLEUUID(BROKER_USER_UUID))) {
+          strcpy(configuration.broker_user, value.c_str());
+        } else if (pCharacteristic->getUUID().equals(BLEUUID(BROKER_PASS_UUID))) {
+          strcpy(configuration.broker_pass, value.c_str());
+        } else if (pCharacteristic->getUUID().equals(BLEUUID(COLOR_UUID))) {
+          strcpy(configuration.color, value.c_str());
+        } else if (pCharacteristic->getUUID().equals(BLEUUID(COMMAND_UUID))) {
+          if(strcmp(value.c_str(), "reboot") == 0){
+            Serial.print("Reboot");
+            ESP.restart();
+          } else if(strcmp(value.c_str(), "update") == 0){
+            Serial.print("Update");
+            configuration.updated = false;
+            EEPROM.put(0,configuration);
+            EEPROM.commit();
+            ESP.restart();
+          }
+        }
+
+        EEPROM.put(0,configuration);
+        EEPROM.commit();
+        delay(100);
+  
+      }
+    }
+};
+
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (strcmp(topic, color_topic) == 0) {
     slave = true;
@@ -35,6 +82,24 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       real_time_color[i] == (char)payload[i];
     }
   } 
+}
+
+void updateFirmware(char* update_server) {
+
+  char binURL[150] = "";
+  strcat(binURL,update_server);
+  strcat(binURL,"/firmware/base.bin");
+  Serial.println(binURL);
+
+  t_httpUpdate_return ret = ESPhttpUpdate.update( binURL );
+  switch(ret) {
+    case HTTP_UPDATE_FAILED:
+      Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\r\n", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+      break;
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("HTTP_UPDATE_NO_UPDATES");
+      break;
+  }
 }
 
 void bleSetup(){
@@ -53,6 +118,8 @@ void bleSetup(){
                                                                    BLECharacteristic::PROPERTY_READ
                                                                  );
   name_characteristic->setValue(configuration.ble_name);
+  BLEDecriptor *name_descriptor = name_characteristic->createDescriptor("");
+  name_descriptor->setValue();
   
   // Device info service
   BLEService *ble_device_info_service = ble_server->createService("180A");
