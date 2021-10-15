@@ -231,7 +231,7 @@ void bleSetup() {
   ble_color_service->start();
   ble_device_info_service->start();
   ble_config_service->start();
-  ble_exec_service->start();
+  ble_command_service->start();
   ble_status_service->start();
   BLEAdvertising *ble_advertising = ble_server->getAdvertising();
   ble_advertising->start();
