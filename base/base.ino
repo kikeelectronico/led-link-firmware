@@ -152,7 +152,7 @@ void bleSetup() {
   color_server_characteristic->setValue(configuration.color);
 
   // Config service
-  BLEService *ble_config_service = ble_server->createService(CONFIGURATION_UUID);
+  BLEService *ble_config_service = ble_server->createService(CONFIGURATION_SERVICE_UUID);
   // SSID characteristic
   BLECharacteristic *ssid_characteristic = ble_config_service->createCharacteristic(
         SSID_UUID,
@@ -208,7 +208,7 @@ void bleSetup() {
   broker_pass_characteristic->setCallbacks(new MyCallbacks());
   broker_pass_characteristic->setValue(configuration.broker_pass);
   // Exec service
-  BLEService *ble_exec_service = ble_server->createService(EXEC_UUID);
+  BLEService *ble_exec_service = ble_server->createService(COMMAND_SERVICE_UUID);
   // Command characteristic
   BLECharacteristic *command_characteristic = ble_exec_service->createCharacteristic(
         COMMAND_UUID,
