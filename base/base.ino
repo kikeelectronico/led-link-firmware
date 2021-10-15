@@ -126,6 +126,18 @@ void bleSetup() {
 
   // Device info service
   BLEService *ble_device_info_service = ble_server->createService("180A");
+  // Serial number characteristic
+  BLECharacteristic *serial_number_characteristic = ble_device_info_service->createCharacteristic(
+        "2A25",
+        BLECharacteristic::PROPERTY_READ
+      );
+  serial_number_characteristic->setValue(configuration.serial_number);
+  // Hardware revision characteristic
+  BLECharacteristic *hardware_revision_characteristic = ble_device_info_service->createCharacteristic(
+        "2A27",
+        BLECharacteristic::PROPERTY_READ
+      );
+  hardware_revision_characteristic->setValue(configuration.hardware_version);
   // Firmware version characteristic
   BLECharacteristic *firmware_version_characteristic = ble_device_info_service->createCharacteristic(
         "2A28",
