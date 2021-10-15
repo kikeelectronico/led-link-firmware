@@ -31,7 +31,7 @@ char alive_topic[50];
 char color_topic[50];
 bool master = false;
 bool slave = false;
-char ledlink_status[10];
+char ledlink_status[20];
 
 class MyCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
@@ -225,7 +225,7 @@ void bleSetup() {
         BLECharacteristic::PROPERTY_READ |
         BLECharacteristic::PROPERTY_NOTIFY
       );
-
+  status_characteristic->addDescriptor(new BLE2902());
   // Start services and advertising
   ble_access_service->start();
   ble_color_service->start();
@@ -237,12 +237,13 @@ void bleSetup() {
   ble_advertising->start();
 }
 
-void changeStatus(char state[10]) {
+void changeStatus(char state[20]) {
   strcpy(ledlink_status, state);
+  status_characteristic->setValue(state);
+  status_characteristic->notify();
 }
 
 void setup() {
-  changeStatus("Booting");
   Serial.begin(baudrate);
 
   // Read the eeprom
@@ -254,6 +255,7 @@ void setup() {
 
   // Set up BLE
   bleSetup();
+  changeStatus("Booting");
 
   // Connect to WiFi
   Serial.print("Connecting to ");
@@ -265,10 +267,12 @@ void setup() {
   }
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\r\nConnected");
+    changeStatus("WiFi - preparado");
 
     // Download and update firmware
     if (!configuration.updated) {
       Serial.print("Updating firmware");
+      changeStatus("Updating");
       configuration.updated = true;
       EEPROM.put(0, configuration);
       EEPROM.commit();
@@ -285,6 +289,7 @@ void setup() {
     }
     if (client.connected()) {
       Serial.println("\r\nConnected");
+      changeStatus("MQTT - preparado");
       // Setup strings
       strcat(alive_topic, configuration.broker_topic);
       strcat(alive_topic, "/alive");
@@ -294,10 +299,12 @@ void setup() {
       client.subscribe(color_topic);
     } else {
       Serial.print("\r\nFail");
+      changeStatus("MQTT - fallo");
     }
     led.blink(2, 1000, 100, 0, 255, 0);
   } else {
     Serial.println("\r\nFail");
+      changeStatus("Wifi - fallo");
   }
 
   // Initialize the time stamps variables
@@ -305,6 +312,8 @@ void setup() {
   last_alive_ts = millis();
   last_master_ts = millis();
   client.publish(alive_topic, "configuration.color");
+
+  changeStatus("Conectado");
 }
 
 void loop() {
