@@ -209,9 +209,9 @@ void bleSetup() {
   broker_pass_characteristic->setCallbacks(new MyCallbacks());
   broker_pass_characteristic->setValue(configuration.broker_pass);
   // Command service
-  BLEService *ble_exec_service = ble_server->createService(COMMAND_SERVICE_UUID);
+  BLEService *ble_command_service = ble_server->createService(COMMAND_SERVICE_UUID);
   // Command characteristic
-  BLECharacteristic *command_characteristic = ble_exec_service->createCharacteristic(
+  BLECharacteristic *command_characteristic = ble_command_service->createCharacteristic(
         COMMAND_UUID,
         BLECharacteristic::PROPERTY_WRITE
       );
