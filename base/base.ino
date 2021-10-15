@@ -31,6 +31,7 @@ char alive_topic[50];
 char color_topic[50];
 bool master = false;
 bool slave = false;
+char ledlink_status[10];
 
 class MyCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
@@ -236,7 +237,12 @@ void bleSetup() {
   ble_advertising->start();
 }
 
+void changeStatus(char state[10]) {
+  strcpy(ledlink_status, state);
+}
+
 void setup() {
+  changeStatus("Booting");
   Serial.begin(baudrate);
 
   // Read the eeprom
