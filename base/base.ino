@@ -6,6 +6,7 @@ using namespace std;
 #include <EEPROM.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
+#include <BLE2902.h>
 #include <Adafruit_NeoPixel.h>
 #include <PubSubClient.h>
 #include <ESP32httpUpdate.h>
@@ -17,6 +18,8 @@ Adafruit_NeoPixel pixels(NUMBER_PIXELS, LED_PIN, NEO_GRB + NEO_KHZ800);
 Led led(&pixels);
 WiFiClient espClient;
 PubSubClient client(espClient);
+
+BLECharacteristic *color_characteristic;
 
 char real_time_color[8] = "#0000ff";
 int number = 0;
@@ -30,13 +33,13 @@ bool slave = false;
 
 class MyCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
-      std::string value = pCharacteristic->getValue();     
+      std::string value = pCharacteristic->getValue();
 
       if (value.length() > 0) {
 
         configuration_struct configuration;
-        
-        EEPROM.begin(eeprom_size);  
+
+        EEPROM.begin(eeprom_size);
         EEPROM.get(0, configuration);
         if (pCharacteristic->getUUID().equals(BLEUUID(SSID_UUID))) {
           strcpy(configuration.ssid, value.c_str());
@@ -55,22 +58,22 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         } else if (pCharacteristic->getUUID().equals(BLEUUID(COLOR_UUID))) {
           strcpy(configuration.color, value.c_str());
         } else if (pCharacteristic->getUUID().equals(BLEUUID(COMMAND_UUID))) {
-          if(strcmp(value.c_str(), "reboot") == 0){
+          if (strcmp(value.c_str(), "reboot") == 0) {
             Serial.print("Reboot");
             ESP.restart();
-          } else if(strcmp(value.c_str(), "update") == 0){
+          } else if (strcmp(value.c_str(), "update") == 0) {
             Serial.print("Update");
             configuration.updated = false;
-            EEPROM.put(0,configuration);
+            EEPROM.put(0, configuration);
             EEPROM.commit();
             ESP.restart();
           }
         }
 
-        EEPROM.put(0,configuration);
+        EEPROM.put(0, configuration);
         EEPROM.commit();
         delay(100);
-  
+
       }
     }
 };
@@ -78,21 +81,21 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (strcmp(topic, color_topic) == 0) {
     slave = true;
-    for (int i=0;i<length;i++) {
+    for (int i = 0; i < length; i++) {
       real_time_color[i] == (char)payload[i];
     }
-  } 
+  }
 }
 
 void updateFirmware(char* update_server) {
 
   char binURL[150] = "";
-  strcat(binURL,update_server);
-  strcat(binURL,"/firmware/base.bin");
+  strcat(binURL, update_server);
+  strcat(binURL, "/firmware/base.bin");
   Serial.println(binURL);
 
   t_httpUpdate_return ret = ESPhttpUpdate.update( binURL );
-  switch(ret) {
+  switch (ret) {
     case HTTP_UPDATE_FAILED:
       Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\r\n", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
       break;
@@ -102,11 +105,11 @@ void updateFirmware(char* update_server) {
   }
 }
 
-void bleSetup(){
+void bleSetup() {
   char ble_name[150] = "";
-  strcat(ble_name,configuration.ble_name);
-  strcat(ble_name," ");
-  strcat(ble_name,configuration.color);
+  strcat(ble_name, configuration.ble_name);
+  strcat(ble_name, " ");
+  strcat(ble_name, configuration.color);
   BLEDevice::init(ble_name);
   BLEServer *ble_server = BLEDevice::createServer();
 
@@ -114,37 +117,37 @@ void bleSetup(){
   BLEService *ble_access_service = ble_server->createService("1800");
   // Name characteristic
   BLECharacteristic *name_characteristic = ble_access_service->createCharacteristic(
-                                                                   "2A00",
-                                                                   BLECharacteristic::PROPERTY_READ
-                                                                 );
+        "2A00",
+        BLECharacteristic::PROPERTY_READ
+      );
   name_characteristic->setValue(configuration.ble_name);
-  BLEDecriptor *name_descriptor = name_characteristic->createDescriptor("");
-  name_descriptor->setValue();
-  
+
   // Device info service
   BLEService *ble_device_info_service = ble_server->createService("180A");
   // Firmware version characteristic
   BLECharacteristic *firmware_version_characteristic = ble_device_info_service->createCharacteristic(
-                                                                   "2A28",
-                                                                   BLECharacteristic::PROPERTY_READ
-                                                                 );
+        "2A28",
+        BLECharacteristic::PROPERTY_READ
+      );
   firmware_version_characteristic->setValue(version_code);
 
   // Color characteristic service
   BLEService *ble_color_service = ble_server->createService(COLOR_SERVICE_UUID);
   // Real time color characteristic
-  BLECharacteristic *color_characteristic = ble_color_service->createCharacteristic(
-                                                                   REAL_TIME_COLOR_UUID,
-                                                                   BLECharacteristic::PROPERTY_READ |
-                                                                   BLECharacteristic::PROPERTY_WRITE
-                                                                 );
+  color_characteristic = ble_color_service->createCharacteristic(
+        REAL_TIME_COLOR_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_WRITE |
+        BLECharacteristic::PROPERTY_NOTIFY
+      );
+  color_characteristic->addDescriptor(new BLE2902());
   color_characteristic->setValue(real_time_color);
   // Color characteristic
   BLECharacteristic *color_server_characteristic = ble_color_service->createCharacteristic(
-                                                                   COLOR_UUID,
-                                                                   BLECharacteristic::PROPERTY_READ |
-                                                                   BLECharacteristic::PROPERTY_WRITE
-                                                                 );
+        COLOR_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_WRITE
+      );
   color_server_characteristic->setCallbacks(new MyCallbacks());
   color_server_characteristic->setValue(configuration.color);
 
@@ -152,73 +155,73 @@ void bleSetup(){
   BLEService *ble_config_service = ble_server->createService(CONFIGURATION_UUID);
   // SSID characteristic
   BLECharacteristic *ssid_characteristic = ble_config_service->createCharacteristic(
-                                                                   SSID_UUID,
-                                                                   BLECharacteristic::PROPERTY_READ |
-                                                                   BLECharacteristic::PROPERTY_WRITE
-                                                                 );
+        SSID_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_WRITE
+      );
   ssid_characteristic->setCallbacks(new MyCallbacks());
   ssid_characteristic->setValue(configuration.ssid);
   // Password characteristic
   BLECharacteristic *password_characteristic = ble_config_service->createCharacteristic(
-                                                                   PASSWORD_UUID,
-                                                                   BLECharacteristic::PROPERTY_WRITE
-                                                                 );
+        PASSWORD_UUID,
+        BLECharacteristic::PROPERTY_WRITE
+      );
   password_characteristic->setCallbacks(new MyCallbacks());
   // OTA server characteristic
   BLECharacteristic *ota_server_characteristic = ble_config_service->createCharacteristic(
-                                                                   OTA_SERVER_UUID,
-                                                                   BLECharacteristic::PROPERTY_READ |
-                                                                   BLECharacteristic::PROPERTY_WRITE
-                                                                 );
+        OTA_SERVER_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_WRITE
+      );
   ota_server_characteristic->setCallbacks(new MyCallbacks());
   ota_server_characteristic->setValue(configuration.ota_server);
   // Broker server characteristic
   BLECharacteristic *broker_server_characteristic = ble_config_service->createCharacteristic(
-                                                                   BROKER_SERVER_UUID,
-                                                                   BLECharacteristic::PROPERTY_READ |
-                                                                   BLECharacteristic::PROPERTY_WRITE
-                                                                 );
+        BROKER_SERVER_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_WRITE
+      );
   broker_server_characteristic->setCallbacks(new MyCallbacks());
   broker_server_characteristic->setValue(configuration.broker_server);
   // Topic characteristic
   BLECharacteristic *topic_characteristic = ble_config_service->createCharacteristic(
-                                                                   TOPIC_UUID,
-                                                                   BLECharacteristic::PROPERTY_READ |
-                                                                   BLECharacteristic::PROPERTY_WRITE
-                                                                 );
+        TOPIC_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_WRITE
+      );
   topic_characteristic->setCallbacks(new MyCallbacks());
   topic_characteristic->setValue(configuration.broker_topic);
   // User characteristic
   BLECharacteristic *broker_user_characteristic = ble_config_service->createCharacteristic(
-                                                                   BROKER_USER_UUID,
-                                                                   BLECharacteristic::PROPERTY_READ |
-                                                                   BLECharacteristic::PROPERTY_WRITE
-                                                                 );
+        BROKER_USER_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_WRITE
+      );
   broker_user_characteristic->setCallbacks(new MyCallbacks());
   broker_user_characteristic->setValue(configuration.broker_user);
   // Broker pass characteristic
   BLECharacteristic *broker_pass_characteristic = ble_config_service->createCharacteristic(
-                                                                   BROKER_PASS_UUID,
-                                                                   BLECharacteristic::PROPERTY_READ |
-                                                                   BLECharacteristic::PROPERTY_WRITE
-                                                                 );
+        BROKER_PASS_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_WRITE
+      );
   broker_pass_characteristic->setCallbacks(new MyCallbacks());
   broker_pass_characteristic->setValue(configuration.broker_pass);
   // Exec service
   BLEService *ble_exec_service = ble_server->createService(EXEC_UUID);
   // Command characteristic
   BLECharacteristic *command_characteristic = ble_exec_service->createCharacteristic(
-                                                                   COMMAND_UUID,
-                                                                   BLECharacteristic::PROPERTY_WRITE
-                                                                 );
+        COMMAND_UUID,
+        BLECharacteristic::PROPERTY_WRITE
+      );
   command_characteristic->setCallbacks(new MyCallbacks());
 
   // Start services and advertising
   ble_access_service->start();
-  ble_color_service->start();  
-  ble_device_info_service->start();  
+  ble_color_service->start();
+  ble_device_info_service->start();
   ble_config_service->start();
-  ble_exec_service->start();    
+  ble_exec_service->start();
   BLEAdvertising *ble_advertising = ble_server->getAdvertising();
   ble_advertising->start();
 }
@@ -229,10 +232,10 @@ void setup() {
   // Read the eeprom
   Serial.println("\r\n\r\nWELCOME 2 LED LINK");
   Serial.println("\r\n");
-  led.blink(1,1000,1000,0,255,0);
-  EEPROM.begin(eeprom_size);  
+  led.blink(1, 1000, 1000, 0, 255, 0);
+  EEPROM.begin(eeprom_size);
   EEPROM.get(0, configuration);
-  
+
   // Set up BLE
   bleSetup();
 
@@ -241,17 +244,17 @@ void setup() {
   Serial.println(configuration.ssid);
   WiFi.begin(configuration.ssid, configuration.password);
   int start_ts = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start_ts < 5000){
-    led.blink(1,500,500,0,0,255);
+  while (WiFi.status() != WL_CONNECTED && millis() - start_ts < 5000) {
+    led.blink(1, 500, 500, 0, 0, 255);
   }
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\r\nConnected");
 
     // Download and update firmware
     if (!configuration.updated) {
-      Serial.print("Updating firmware");    
+      Serial.print("Updating firmware");
       configuration.updated = true;
-      EEPROM.put(0,configuration);
+      EEPROM.put(0, configuration);
       EEPROM.commit();
       updateFirmware(&configuration.ota_server[0]);
     }
@@ -262,21 +265,21 @@ void setup() {
     client.setCallback(mqttCallback);
     start_ts = millis();
     while (!client.connect(configuration.ble_name, configuration.broker_user, configuration.broker_pass) && millis() - start_ts < 5000) {
-      led.blink(1,500,500,255,0,255);
-    }  
+      led.blink(1, 500, 500, 255, 0, 255);
+    }
     if (client.connected()) {
       Serial.println("\r\nConnected");
       // Setup strings
-      strcat(alive_topic,configuration.broker_topic);
-      strcat(alive_topic,"/alive");
-      strcat(color_topic,configuration.broker_topic);
-      strcat(color_topic,"/color");
+      strcat(alive_topic, configuration.broker_topic);
+      strcat(alive_topic, "/alive");
+      strcat(color_topic, configuration.broker_topic);
+      strcat(color_topic, "/color");
       // Subscribe
       client.subscribe(color_topic);
     } else {
       Serial.print("\r\nFail");
     }
-    led.blink(2,1000,100,0,255,0);
+    led.blink(2, 1000, 100, 0, 255, 0);
   } else {
     Serial.println("\r\nFail");
   }
@@ -284,7 +287,7 @@ void setup() {
   // Initialize the time stamps variables
   last_color_ts = millis();
   last_alive_ts = millis();
-  last_master_ts = millis();  
+  last_master_ts = millis();
   client.publish(alive_topic, "configuration.color");
 }
 
@@ -300,8 +303,10 @@ void loop() {
     }
 
     // Send color as master
-     if (master && millis() - last_master_ts > 5000) {
+    if (master && millis() - last_master_ts > 5000) {
       client.publish(color_topic, real_time_color);
+      color_characteristic->setValue(real_time_color);
+      color_characteristic->notify();
       last_master_ts = millis();
     }
 
