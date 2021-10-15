@@ -28,4 +28,5 @@ struct configuration_struct {
   char broker_pass[25];
   char ble_name[50];
   char color[8];
+  char sn[6];
 };
