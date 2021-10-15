@@ -20,6 +20,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 BLECharacteristic *color_characteristic;
+BLECharacteristic *status_characteristic;
 
 char real_time_color[8] = "#0000ff";
 int number = 0;
@@ -207,7 +208,7 @@ void bleSetup() {
       );
   broker_pass_characteristic->setCallbacks(new MyCallbacks());
   broker_pass_characteristic->setValue(configuration.broker_pass);
-  // Exec service
+  // Command service
   BLEService *ble_exec_service = ble_server->createService(COMMAND_SERVICE_UUID);
   // Command characteristic
   BLECharacteristic *command_characteristic = ble_exec_service->createCharacteristic(
@@ -215,6 +216,14 @@ void bleSetup() {
         BLECharacteristic::PROPERTY_WRITE
       );
   command_characteristic->setCallbacks(new MyCallbacks());
+  // Status service
+  BLEService *ble_status_service = ble_server->createService(STATUS_SERVICE_UUID);
+  // Status characteristic
+  status_characteristic = ble_status_service->createCharacteristic(
+        STATUS_UUID,
+        BLECharacteristic::PROPERTY_READ |
+        BLECharacteristic::PROPERTY_NOTIFY
+      );
 
   // Start services and advertising
   ble_access_service->start();
@@ -222,6 +231,7 @@ void bleSetup() {
   ble_device_info_service->start();
   ble_config_service->start();
   ble_exec_service->start();
+  ble_status_service->start();
   BLEAdvertising *ble_advertising = ble_server->getAdvertising();
   ble_advertising->start();
 }

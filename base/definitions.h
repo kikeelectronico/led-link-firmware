@@ -14,6 +14,8 @@ int eeprom_size = 512;
 #define BROKER_PASS_UUID "3f85b4e2-fe1f-4c17-a7d3-8e1de0fd5ebd"
 #define COMMAND_SERVICE_UUID "d9b655f5-0c49-491e-a4a0-c836826b30cf"
 #define COMMAND_UUID "5ade4357-0226-4e39-b95d-b129f3f45be1"
+#define STATUS_SERVICE_UUID "a7c17df2-0e55-42cd-9b3e-2852c5441a70"
+#define STATUS_UUID "a3a5d014-c988-42b0-a49e-50f26ae8fbd6"
 
 struct configuration_struct {
   char ssid[50];
